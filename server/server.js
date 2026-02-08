@@ -1,19 +1,20 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import pkg from 'pg';
 
+dotenv.config();
 const app = express();
 const { Pool } = pkg;
 
 const PORT = process.env.PORT || 4000;
 const pool = new Pool({
-    host: 'localhost',
-    port: 5432,
-    user: 'careconnect',
-    password: 'careconnect_password',
-    database: 'careconnect_db',
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
 });
 
-// simple health check route
 app.get('/health', (req, res) => {
     res.json({ status: 'alive' });
 });

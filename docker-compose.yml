@@ -4,7 +4,7 @@ services:
         container_name: careconnect_postgres
         environment:
             POSTGRES_USER: careconnect
-            POSTGRES_PASSWORD: careconnect_password
+            POSTGRES_PASSWORD: careconnect_est2026
             POSTGRES_DB: careconnect_db
         ports:
             - '5432:5432'
