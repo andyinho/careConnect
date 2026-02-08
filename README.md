@@ -2,8 +2,6 @@
 
 CareConnect is a portfolio project that demonstrates how patient intake and consent workflows can be designed with usability, role-based access control, and HIPAA-aware data handling in mind.
 
-This project emphasizes correctness, clarity, and system boundaries over feature breadth.
-
 ## Problem
 
 Patient intake is a critical choke point in healthcare systems. Errors or poor design at this stage can lead to compliance risks, data integrity issues, and poor patient experiences.
@@ -62,8 +60,10 @@ Fill in the values in `server/.env` (see `.env.example` for required variables)
 
 From `server/`:
 
-`npm install`
-`npm run dev`
+```
+npm install
+npm run dev
+```
 
 ### 4) Verify
 
