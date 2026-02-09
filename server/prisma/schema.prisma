@@ -5,10 +5,45 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model Clinic {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users   User[]
+  uploads Upload[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  clinicId  String
+  email     String   @unique
+  role      String
+  createdAt DateTime @default(now())
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  uploads Upload[] @relation("UploadedBy")
+}
+
+model Upload {
+  id               String   @id @default(uuid())
+  clinicId         String
+  uploadedByUserId String
+  originalFilename String
+  mimeType         String
+  storageKey       String
+  status           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  clinic     Clinic @relation(fields: [clinicId], references: [id])
+  uploadedBy User   @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
 }
