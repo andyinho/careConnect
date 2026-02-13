@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { prisma } from './src/db/prisma.js';
 import express from 'express';
 import pkg from 'pg';
 
@@ -25,6 +26,20 @@ app.get('/db-check', async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({ db: 'error' });
+    }
+});
+app.get('/clinics', async (req, res) => {
+    try {
+        const clinics = await prisma.clinic.findMany({
+            include: {
+                users: true,
+            },
+        });
+
+        res.json({ clinics });
+    } catch (error) {
+        console.error('GET /clinics failed:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
