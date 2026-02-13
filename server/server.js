@@ -7,6 +7,8 @@ dotenv.config();
 const app = express();
 const { Pool } = pkg;
 
+app.use(express.json());
+
 const PORT = process.env.PORT || 4000;
 const pool = new Pool({
     host: process.env.DB_HOST,
@@ -39,6 +41,28 @@ app.get('/clinics', async (req, res) => {
         res.json({ clinics });
     } catch (error) {
         console.error('GET /clinics failed:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.post('/uploads', async (req, res) => {
+    try {
+        const { clinicId, uploadedByUserId, originalFilename, mimeType } =
+            req.body;
+
+        const upload = await prisma.upload.create({
+            data: {
+                clinicId,
+                uploadedByUserId,
+                originalFilename,
+                mimeType,
+                storageKey: `placeholder/${Date.now()}_${originalFilename}`,
+                status: 'RECEIVED',
+            },
+        });
+
+        res.status(201).json({ upload });
+    } catch (error) {
+        console.error('POST /uploads failed:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
