@@ -1,27 +1,72 @@
 # CareConnect
 
-CareConnect is a portfolio project that demonstrates how patient intake and consent workflows can be designed with usability, role-based access control, and HIPAA-aware data handling in mind.
+CareConnect demonstrates how AI-assisted patient intake workflows can be designed with human review, auditability, and HIPAA-aware data handling at their core.
+
+The system models an internal clinic workflow:
+
+**Staff uploads intake documents → AI extracts structured data → Staff reviews and approves → System saves canonical patient record**
+
+CareConnect models how modern healthcare operations tools can integrate AI into high-stakes workflows while preserving data integrity, compliance boundaries, and human oversight.
 
 ## Problem
 
-Patient intake is a critical choke point in healthcare systems. Errors or poor design at this stage can lead to compliance risks, data integrity issues, and poor patient experiences.
+Patient intake is a critical choke point in healthcare systems.
 
-This project focuses on building a **safe, auditable intake workflow**, not just a simple form UI.
+In many clinics:
 
-## Goals
+- Paper forms are scanned and manually entered into systems
+- Staff spend significant time retyping demographic and insurance information
+- Errors introduced at intake propagate downstream into scheduling, billing, and eligibility workflows
+- There is limited traceability of who modified patient data and when
 
-- Model a realistic patient intake workflow
-- Capture and record explicit patient consent
-- Enforce role-based access (patient vs staff)
+AI introduces an opportunity to reduce manual data entry. However, in regulated healthcare environments, automation without oversight creates risk.
+
+CareConnect focuses on designing a safe, auditable, human-in-the-loop workflow — not just document parsing.
+
+## Goals (V1)
+
+- Model a realistic AI-assisted intake workflow
+- Support document uploads (PDF/image)
+- Extract structured fields using AI
+- Require explicit staff review before saving data
 - Maintain audit logs for sensitive actions
+- Enforce clinic-scoped access control
 - Keep the system intentionally small and understandable
+
+## Workflow (V1)
+
+- Staff uploads intake document
+- System performs OCR and AI-based structured extraction
+- AI generates field-level suggestions with confidence scores
+- Staff reviews and edits extracted data
+- Staff approves the final payload
+- System saves a canonical patient record
+
+AI-generated suggestions are never treated as truth until approved by a human reviewer.
 
 ## Non-Goals
 
 - Real EHR integrations
+- Insurance eligibility verification
 - Billing or payments
 - Production-grade authentication
-- Multi-clinic or multi-tenant support
+- Multi-clinic enterprise tenancy features
+- Full FHIR implementation
+- Patient-facing portal experience
+
+## Why This Project Exists
+
+The project demonstrates applied system design in a regulated healthcare domain, with a focus on safe AI integration and workflow-driven architecture.
+
+The project intentionally models:
+
+- AI systems that require structured human validation
+- Explicit workflow state transitions rather than simple CRUD operations
+- Clear separation between AI-generated suggestions and system-of-record data
+- Audit-aware backend architecture
+- Architectural decisions influenced by compliance and PHI boundaries
+
+The system is intentionally scoped to remain understandable while still reflecting realistic operational complexity found in healthcare environments.
 
 ## High-Level Architecture
 
@@ -88,3 +133,5 @@ The API runs on port 4000 by default.
 - PostgreSQL
 - Docker
 - JavaScript (ES Modules)
+
+For detailed data modeling decisions, see the [V1 Schema](docs/v1-schema.md).
