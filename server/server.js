@@ -44,10 +44,111 @@ app.get('/clinics', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+app.get('/clinics/:clinicId/uploads', async (req, res) => {
+    try {
+        const clinicId = req.params.clinicId;
+
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { id: true },
+        });
+        if (!clinic) {
+            return res.status(404).json({
+                error: 'Clinic not found',
+            });
+        }
+
+        const uploads = await prisma.upload.findMany({
+            where: {
+                clinicId,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+            select: {
+                id: true,
+                originalFilename: true,
+                status: true,
+                createdAt: true,
+                uploadedBy: {
+                    select: {
+                        id: true,
+                        email: true,
+                        role: true,
+                    },
+                },
+            },
+        });
+        return res.status(200).json({
+            uploads,
+        });
+    } catch (error) {
+        console.error('GET /uploads failed:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 app.post('/uploads', async (req, res) => {
     try {
         const { clinicId, uploadedByUserId, originalFilename, mimeType } =
             req.body;
+
+        if (!clinicId || !uploadedByUserId || !originalFilename || !mimeType) {
+            return res.status(400).json({
+                error: 'Missing Fields',
+                required: [
+                    'clinicId',
+                    'uploadedByUserId',
+                    'originalFilename',
+                    'mimeType',
+                ],
+            });
+        }
+
+        const allowedMimeTypes = new Set([
+            'application/pdf',
+            'image/png',
+            'image/jpeg',
+        ]);
+        if (!allowedMimeTypes.has(mimeType)) {
+            return res.status(400).json({
+                error: 'Invalid mimeType',
+                allowed: allowedMimeTypes,
+                received: mimeType,
+            });
+        }
+
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { id: true },
+        });
+        if (!clinic) {
+            return res.status(404).json({
+                error: 'Clinic not found',
+            });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: uploadedByUserId },
+            select: {
+                id: true,
+                clinicId: true,
+                role: true,
+            },
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (user.clinicId !== clinicId) {
+            return res
+                .status(403)
+                .json({ error: 'User does not belong to this clinic' });
+        }
+        if (user.role !== 'STAFF') {
+            return res
+                .status(403)
+                .json({ error: 'Only staff can upload intake forms' });
+        }
 
         const upload = await prisma.upload.create({
             data: {
