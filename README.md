@@ -124,7 +124,7 @@ The API runs on port 4000 by default.
 
 ## Status
 
-🚧 In progress — project setup and system foundations.
+🚧 In progress — Building out RESTful endpoints and core logic.
 
 ## Tech Stack
 
