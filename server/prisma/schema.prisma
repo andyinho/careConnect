@@ -4,6 +4,21 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+enum UploadStatus {
+  RECEIVED
+  PENDING_EXTRACTION
+  NEEDS_REVIEW
+  APPROVED
+  FAILED
+}
+
+enum ExtractionJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -39,10 +54,32 @@ model Upload {
   originalFilename String
   mimeType         String
   storageKey       String
-  status           String
+  status           UploadStatus @default(RECEIVED)
+  patientLabel     String?
+
+  @@index([clinicId])
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   clinic     Clinic @relation(fields: [clinicId], references: [id])
   uploadedBy User   @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  
+  extractionJobs   ExtractionJob[]
+}
+
+model ExtractionJob {
+  id            String   @id @default(uuid())
+  uploadId      String
+  status        ExtractionJobStatus @default(QUEUED)
+  modelName     String?
+  promptVersion String?
+  errorMessage  String?
+
+  @@index([uploadId])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  upload Upload @relation(fields: [uploadId], references: [id])
 }
