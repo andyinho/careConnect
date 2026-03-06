@@ -1,5 +1,7 @@
 import { prisma } from '../db/prisma.js';
 
+const ROLE_STAFF = 'STAFF';
+
 export async function createUpload(req, res) {
     try {
         const { clinicId, uploadedByUserId, originalFilename, mimeType } =
@@ -52,7 +54,7 @@ export async function createUpload(req, res) {
                 .status(403)
                 .json({ error: 'User does not belong to this clinic' });
         }
-        if (user.role !== 'STAFF') {
+        if (user.role !== ROLE_STAFF) {
             return res
                 .status(403)
                 .json({ error: 'Only staff can upload intake forms' });
