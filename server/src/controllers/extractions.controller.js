@@ -2,6 +2,11 @@ import { prisma } from '../db/prisma.js';
 
 const ROLE_STAFF = 'STAFF';
 
+const STATUS_RECEIVED = 'RECEIVED';
+const STATUS_FAILED = 'FAILED';
+const STATUS_QUEUED = 'QUEUED';
+const STATUS_PENDING_EXTRACTION = 'PENDING_EXTRACTION';
+
 class ConflictError extends Error {
     constructor(message) {
         super(message);
@@ -71,31 +76,26 @@ export async function startExtraction(req, res) {
         }
 
         const startable =
-            upload.status === 'RECEIVED' || upload.status === 'FAILED';
+            upload.status === STATUS_RECEIVED ||
+            upload.status === STATUS_FAILED;
         if (!startable) {
             return res.status(409).json({
                 error: 'Upload not in a startable state',
-                allowed: ['RECEIVED', 'FAILED'],
+                allowed: [STATUS_RECEIVED, STATUS_FAILED],
             });
         }
 
-        /*
-        - Try to update the Upload only if it’s still startable
-        - Inspect whether that update actually succeeded
-        - If it didn’t → throw a conflict
-        - If it did → create the ExtractionJob
-        */
         const job = await prisma.$transaction(async (tx) => {
             const updateResult = await tx.upload.updateMany({
                 where: {
                     id: uploadId,
                     clinicId: clinicId,
                     status: {
-                        in: ['RECEIVED', 'FAILED'],
+                        in: [STATUS_RECEIVED, STATUS_FAILED],
                     },
                 },
                 data: {
-                    status: 'PENDING_EXTRACTION',
+                    status: STATUS_PENDING_EXTRACTION,
                 },
             });
             if (updateResult.count === 0) {
@@ -103,6 +103,30 @@ export async function startExtraction(req, res) {
                     'Extraction already started or upload not startable',
                 );
             }
+
+            const createdJob = await tx.extractionJob.create({
+                data: {
+                    uploadId: uploadId,
+                    status: STATUS_QUEUED,
+                    modelName: 'gpt-4.1-mini',
+                    promptVersion: 'v1',
+                },
+                select: {
+                    id: true,
+                    uploadId: true,
+                    status: true,
+                    createdAt: true,
+                    modelName: true,
+                    promptVersion: true,
+                },
+            });
+
+            return createdJob;
+        });
+
+        return res.status(201).json({
+            message: 'Extraction job queued',
+            job,
         });
     } catch (error) {
         if (error.name === 'ConflictError') {

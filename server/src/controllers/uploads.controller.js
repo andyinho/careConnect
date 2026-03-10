@@ -2,6 +2,8 @@ import { prisma } from '../db/prisma.js';
 
 const ROLE_STAFF = 'STAFF';
 
+const STATUS_RECEIVED = 'RECEIVED';
+
 export async function createUpload(req, res) {
     try {
         const { clinicId, uploadedByUserId, originalFilename, mimeType } =
@@ -67,7 +69,7 @@ export async function createUpload(req, res) {
                 originalFilename,
                 mimeType,
                 storageKey: `placeholder/${Date.now()}_${originalFilename}`,
-                status: 'RECEIVED',
+                status: STATUS_RECEIVED,
             },
         });
 
