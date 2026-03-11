@@ -2,10 +2,11 @@ import { prisma } from '../db/prisma.js';
 
 const ROLE_STAFF = 'STAFF';
 
-const STATUS_RECEIVED = 'RECEIVED';
-const STATUS_FAILED = 'FAILED';
-const STATUS_QUEUED = 'QUEUED';
-const STATUS_PENDING_EXTRACTION = 'PENDING_EXTRACTION';
+const JOB_STATUS_QUEUED = 'QUEUED';
+
+const UPLOAD_STATUS_RECEIVED = 'RECEIVED';
+const UPLOAD_STATUS_FAILED = 'FAILED';
+const UPLOAD_STATUS_PENDING_EXTRACTION = 'PENDING_EXTRACTION';
 
 class ConflictError extends Error {
     constructor(message) {
@@ -76,12 +77,12 @@ export async function startExtraction(req, res) {
         }
 
         const startable =
-            upload.status === STATUS_RECEIVED ||
-            upload.status === STATUS_FAILED;
+            upload.status === UPLOAD_STATUS_RECEIVED ||
+            upload.status === UPLOAD_STATUS_FAILED;
         if (!startable) {
             return res.status(409).json({
                 error: 'Upload not in a startable state',
-                allowed: [STATUS_RECEIVED, STATUS_FAILED],
+                allowed: [UPLOAD_STATUS_RECEIVED, UPLOAD_STATUS_FAILED],
             });
         }
 
@@ -91,11 +92,11 @@ export async function startExtraction(req, res) {
                     id: uploadId,
                     clinicId: clinicId,
                     status: {
-                        in: [STATUS_RECEIVED, STATUS_FAILED],
+                        in: [UPLOAD_STATUS_RECEIVED, UPLOAD_STATUS_FAILED],
                     },
                 },
                 data: {
-                    status: STATUS_PENDING_EXTRACTION,
+                    status: UPLOAD_STATUS_PENDING_EXTRACTION,
                 },
             });
             if (updateResult.count === 0) {
@@ -107,7 +108,7 @@ export async function startExtraction(req, res) {
             const createdJob = await tx.extractionJob.create({
                 data: {
                     uploadId: uploadId,
-                    status: STATUS_QUEUED,
+                    status: JOB_STATUS_QUEUED,
                     modelName: 'gpt-4.1-mini',
                     promptVersion: 'v1',
                 },

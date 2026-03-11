@@ -2,7 +2,7 @@ import { prisma } from '../db/prisma.js';
 
 const ROLE_STAFF = 'STAFF';
 
-const STATUS_RECEIVED = 'RECEIVED';
+const UPLOAD_STATUS_RECEIVED = 'RECEIVED';
 
 export async function createUpload(req, res) {
     try {
@@ -69,7 +69,7 @@ export async function createUpload(req, res) {
                 originalFilename,
                 mimeType,
                 storageKey: `placeholder/${Date.now()}_${originalFilename}`,
-                status: STATUS_RECEIVED,
+                status: UPLOAD_STATUS_RECEIVED,
             },
         });
 
