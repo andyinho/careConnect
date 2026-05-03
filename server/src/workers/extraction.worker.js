@@ -23,7 +23,10 @@ async function processNextQueuedJob() {
             createdAt: true,
         },
     });
-    if (!queuedJob) return;
+    if (!queuedJob) {
+        console.log('No queued jobs found.');
+        return;
+    }
 
     const claimResult = await prisma.extractionJob.updateMany({
         where: {
@@ -64,3 +67,36 @@ async function processNextQueuedJob() {
         `Processed extraction job ${queuedJob.id} for upload ${queuedJob.uploadId}`,
     );
 }
+
+async function runWorkerOnce() {
+    console.log('Worker Tick Started...');
+    await processNextQueuedJob();
+    console.log('Worker Tick Completed...');
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve();
+        }, ms);
+    });
+}
+
+async function startWorkerLoop() {
+    console.log('Worker loop started. Polling every 5 seconds...');
+    while (true) {
+        try {
+            await runWorkerOnce();
+        } catch (error) {
+            console.error('Worker loop error:', error);
+        }
+
+        await sleep(5000);
+    }
+}
+
+startWorkerLoop().catch(async (error) => {
+    console.error('Fatal worker error:', error);
+    await prisma.$disconnect();
+    process.exit(1);
+});
