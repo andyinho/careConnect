@@ -1,6 +1,5 @@
 import { prisma } from '../db/prisma.js';
-
-const ROLE_STAFF = 'STAFF';
+import { assertClinicStaffUser } from '../services/access.service.js';
 
 const JOB_STATUS_QUEUED = 'QUEUED';
 
@@ -27,9 +26,10 @@ export async function startExtraction(req, res) {
             });
         }
 
-        const upload = await prisma.upload.findUnique({
+        const upload = await prisma.upload.findFirst({
             where: {
                 id: uploadId,
+                clinicId,
             },
             select: {
                 id: true,
@@ -44,37 +44,10 @@ export async function startExtraction(req, res) {
             });
         }
 
-        if (upload.clinicId !== clinicId) {
-            return res.status(403).json({
-                error: 'Upload does not belong to clinic',
-            });
-        }
-
-        // fetch user scoped to clinic
-        const user = await prisma.user.findFirst({
-            where: {
-                id: userId,
-                clinicId: clinicId,
-            },
-            select: {
-                id: true,
-                clinicId: true,
-                role: true,
-            },
+        await assertClinicStaffUser({
+            userId,
+            clinicId,
         });
-
-        if (!user) {
-            return res.status(404).json({
-                error: 'User not found',
-            });
-        }
-
-        // STAFF allowed to unblock development, v2: Refine roles (FRONTDESK, CLINICIANS)
-        if (user.role !== ROLE_STAFF) {
-            return res.status(403).json({
-                error: 'User not authorized',
-            });
-        }
 
         const startable =
             upload.status === UPLOAD_STATUS_RECEIVED ||
@@ -135,6 +108,13 @@ export async function startExtraction(req, res) {
                 error: error.message,
             });
         }
+
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                error: error.message,
+            });
+        }
+
         console.error('POST /extractions failed:', error);
         return res.status(500).json({ error: 'Internal Server Error' });
     }

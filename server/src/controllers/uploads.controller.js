@@ -1,6 +1,5 @@
 import { prisma } from '../db/prisma.js';
-
-const ROLE_STAFF = 'STAFF';
+import { assertClinicStaffUser } from '../services/access.service.js';
 
 const UPLOAD_STATUS_RECEIVED = 'RECEIVED';
 
@@ -30,37 +29,10 @@ export async function createUpload(req, res) {
             });
         }
 
-        const clinic = await prisma.clinic.findUnique({
-            where: { id: clinicId },
-            select: { id: true },
+        await assertClinicStaffUser({
+            userId: uploadedByUserId,
+            clinicId,
         });
-        if (!clinic) {
-            return res.status(404).json({
-                error: 'Clinic not found',
-            });
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { id: uploadedByUserId },
-            select: {
-                id: true,
-                clinicId: true,
-                role: true,
-            },
-        });
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        if (user.clinicId !== clinicId) {
-            return res
-                .status(403)
-                .json({ error: 'User does not belong to this clinic' });
-        }
-        if (user.role !== ROLE_STAFF) {
-            return res
-                .status(403)
-                .json({ error: 'Only staff can upload intake forms' });
-        }
 
         const upload = await prisma.upload.create({
             data: {
@@ -75,6 +47,11 @@ export async function createUpload(req, res) {
 
         res.status(201).json({ upload });
     } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                error: error.message,
+            });
+        }
         console.error('POST /uploads failed:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
