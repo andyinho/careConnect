@@ -43,12 +43,12 @@ model User {
   role      String
   createdAt DateTime @default(now())
 
-  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  clinic  Clinic   @relation(fields: [clinicId], references: [id])
   uploads Upload[] @relation("UploadedBy")
 }
 
 model Upload {
-  id               String   @id @default(uuid())
+  id               String       @id @default(uuid())
   clinicId         String
   uploadedByUserId String
   originalFilename String
@@ -57,29 +57,46 @@ model Upload {
   status           UploadStatus @default(RECEIVED)
   patientLabel     String?
 
-  @@index([clinicId])
-
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   clinic     Clinic @relation(fields: [clinicId], references: [id])
   uploadedBy User   @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
-  
+
   extractionJobs   ExtractionJob[]
+  extractionResult ExtractionResult?
+
+  @@index([clinicId])
 }
 
 model ExtractionJob {
-  id            String   @id @default(uuid())
+  id            String              @id @default(uuid())
   uploadId      String
   status        ExtractionJobStatus @default(QUEUED)
   modelName     String?
   promptVersion String?
   errorMessage  String?
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  upload           Upload            @relation(fields: [uploadId], references: [id])
+  extractionResult ExtractionResult?
+
   @@index([uploadId])
+}
+
+model ExtractionResult {
+  id              String @id @default(uuid())
+  uploadId        String @unique
+  extractionJobId String @unique
+
+  extractedPayload Json
+  confidence       Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  upload Upload @relation(fields: [uploadId], references: [id])
+  upload        Upload        @relation(fields: [uploadId], references: [id])
+  extractionJob ExtractionJob @relation(fields: [extractionJobId], references: [id])
 }
