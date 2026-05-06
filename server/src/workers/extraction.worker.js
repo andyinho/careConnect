@@ -26,10 +26,18 @@ function createSimulatedExtractionPayload() {
     };
 }
 
+function shouldSimulateFailure() {
+    return process.env.SIMULATE_EXTRACTION_FAILURE === 'true';
+}
+
 async function processNextQueuedJob() {
+    // select queued job
     const queuedJob = await prisma.extractionJob.findFirst({
         where: {
             status: JOB_STATUS_QUEUED,
+            attemptCount: {
+                lt: 3,
+            },
         },
         orderBy: {
             createdAt: 'asc',
@@ -38,6 +46,8 @@ async function processNextQueuedJob() {
             id: true,
             uploadId: true,
             createdAt: true,
+            attemptCount: true,
+            maxAttempts: true,
         },
     });
     if (!queuedJob) {
@@ -45,25 +55,53 @@ async function processNextQueuedJob() {
         return;
     }
 
+    // claim and update queued job
     const claimResult = await prisma.extractionJob.updateMany({
         where: {
             id: queuedJob.id,
             status: JOB_STATUS_QUEUED,
+            attemptCount: {
+                lt: queuedJob.maxAttempts,
+            },
         },
         data: {
             status: JOB_STATUS_RUNNING,
+            attemptCount: {
+                increment: 1,
+            },
         },
     });
     if (claimResult.count === 0) return;
 
+    // re-read claimed queued job with updated count
+    const runningJob = await prisma.extractionJob.findUnique({
+        where: {
+            id: queuedJob.id,
+        },
+        select: {
+            id: true,
+            uploadId: true,
+            attemptCount: true,
+            maxAttempts: true,
+        },
+    });
+    if (!runningJob) {
+        throw new Error('Claimed extraction job not found');
+    }
+
     const extractedPayload = createSimulatedExtractionPayload();
 
     try {
+        // run only to simulated failure
+        if (shouldSimulateFailure()) {
+            throw new Error('Simulated extraction failure');
+        }
+
         await prisma.$transaction(async (tx) => {
             // mark job as succeeded
             await tx.extractionJob.update({
                 where: {
-                    id: queuedJob.id,
+                    id: runningJob.id,
                 },
                 data: {
                     status: JOB_STATUS_SUCCEEDED,
@@ -73,16 +111,16 @@ async function processNextQueuedJob() {
             // create/update extraction result
             await tx.extractionResult.upsert({
                 where: {
-                    uploadId: queuedJob.uploadId,
+                    uploadId: runningJob.uploadId,
                 },
                 update: {
-                    extractionJobId: queuedJob.id,
+                    extractionJobId: runningJob.id,
                     extractedPayload,
                     confidence: 0.92,
                 },
                 create: {
-                    uploadId: queuedJob.uploadId,
-                    extractionJobId: queuedJob.id,
+                    uploadId: runningJob.uploadId,
+                    extractionJobId: runningJob.id,
                     extractedPayload,
                     confidence: 0.92,
                 },
@@ -91,7 +129,7 @@ async function processNextQueuedJob() {
             // confirm upload can move to 'needs review'
             const uploadUpdateResult = await tx.upload.updateMany({
                 where: {
-                    id: queuedJob.uploadId,
+                    id: runningJob.uploadId,
                     status: UPLOAD_STATUS_PENDING_EXTRACTION,
                 },
                 data: {
@@ -106,23 +144,48 @@ async function processNextQueuedJob() {
         });
 
         console.log(
-            `Processed extraction job ${queuedJob.id} for upload ${queuedJob.uploadId}`,
+            `Processed extraction job ${runningJob.id} for upload ${runningJob.uploadId}`,
         );
     } catch (error) {
+        const errorMessage =
+            error instanceof Error
+                ? error.message
+                : 'Unknown extraction worker error';
+
+        const shouldRetry = runningJob.attemptCount < runningJob.maxAttempts;
+
         await prisma.$transaction(async (tx) => {
+            if (shouldRetry) {
+                await tx.extractionJob.update({
+                    where: {
+                        id: runningJob.id,
+                    },
+                    data: {
+                        status: JOB_STATUS_QUEUED,
+                        errorMessage,
+                    },
+                });
+
+                console.error(
+                    `Extraction job ${runningJob.id} failed attempt ${runningJob.attemptCount}/${runningJob.maxAttempts}. Retrying...`,
+                );
+
+                return;
+            }
+
             await tx.extractionJob.update({
                 where: {
-                    id: queuedJob.id,
+                    id: runningJob.id,
                 },
                 data: {
                     status: JOB_STATUS_FAILED,
-                    errorMessage: error.message,
+                    errorMessage,
                 },
             });
 
             await tx.upload.updateMany({
                 where: {
-                    id: queuedJob.uploadId,
+                    id: runningJob.uploadId,
                     status: UPLOAD_STATUS_PENDING_EXTRACTION,
                 },
                 data: {
@@ -131,10 +194,12 @@ async function processNextQueuedJob() {
             });
         });
 
-        console.error(
-            `Failed extraction job ${queuedJob.id} for upload ${queuedJob.uploadId}:`,
-            error,
-        );
+        if (!shouldRetry) {
+            console.error(
+                `Extraction job ${runningJob.id} failed permanently after ${runningJob.attemptCount}/${runningJob.maxAttempts} attempts.`,
+                error,
+            );
+        }
     }
 }
 
